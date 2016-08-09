@@ -19,7 +19,13 @@ macro entry name, address, size, flags { ;max size of name: 15,
     abort ;unexisting istruction to stop the assembly process
   end if
   times b db 0
-  dd address, flags ;logical address of file and flags
+  if address > 0
+    dd address
+  else
+    dd now
+    now = now + 1
+  end if
+  dd flags
 }
 
 file 'boot.bin'
@@ -36,8 +42,10 @@ a = $
 db 'FrazzoOS', 0 ;label of the disk
 times 16 - ($ - a) db 0
 
-entry 'edit.ef', 4, 1, F_EXECUTABLE
-entry 'logo.cmp', 5, 1, F_READONLY
+now = SECTORSFORKERNEL + SECTORSFORBOOT + SECTORSFORFRFS
+
+entry 'edit.ef', 0, 1, F_EXECUTABLE
+entry 'logo.cmp', 0, 1, F_READONLY
 
 SectorAlign
 
@@ -45,7 +53,7 @@ file 'kernel.bin'
 file 'programs\edit.bin'
 file 'files\logo.bin'
 
-CAZ equ 1474560
+CAZ equ 1474560 ;size in bytes of a 1.44MB floppy disk
 
 times CAZ - ($-$$) db 0
 
