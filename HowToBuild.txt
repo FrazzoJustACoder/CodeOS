@@ -1,0 +1,6 @@
+How to build:
+ - Compile all files, FrazzoOS.asm has to be the very last
+ - Run build.bat
+You'll get a bootable 1.44MB floppy disk image in .img format, with a custom filesystem
+
+ 
