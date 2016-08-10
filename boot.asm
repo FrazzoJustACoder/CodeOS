@@ -12,102 +12,13 @@ org 0x7C00
   xor di, di
   mov es, di
   int 13h ;get drive parameters
+  mov si, str_error_AH8
   jc errore
 
-  call ordinare
-
-  mov ax, 2 ;logical 2: kernel
-  call l2hts
-  mov ax, 0202h ;2 sectors for kernel
-  mov bx, 1000h ;we'll relocate it after
-  mov es, bx
-  xor bx, bx
-  int 13h ;load sectors from disk
-  jc errore
-
-;  mov ax, 0013h
-;  int 10h ;grapchics mode 320x200
-
-  ;enable A20 line:
-  mov ax, 2401h ;a20 gate activate
-  int 15h
-  jb .error
-  test ah, ah
-  jne .error
-
-  a = $-6
-  mov ax, 0xffff
-  mov gs, ax
-  mov ax, [a]
-  cmp ax, word [gs:a+1]
-  jne A20ok
-
-  .error:
-   mov si, str_error_A20
-   call print
-   jmp $
-
-  str_error_A20 db 'Can', "'", 't enable A20 gate', 0
-
-  print:
-    mov ah, 0eh
-    lodsb
-    jmp .check
-    .loop:
-     int 10h
-     lodsb
-      .check:
-     test al, al
-     jnz .loop
-    retw
-
-  A20ok:
-
-  ;load a gdt and enter protected mode:
-  cli
-  lgdt [GDT]
-  mov eax, cr0
-  or al, 1 ;set PE bit
-  mov cr0, eax
-
-  ;relocate the kernel:
-  mov ax, 20h
-  mov ds, ax
-  mov es, ax
-  mov esi, 0x10000
-  mov edi, 0x100000
-  mov ecx, 1024 / 4 ;2 sectors
-  rep movsd
-  mov edi, [GDT+20h]
-  xor eax, eax
-  stosd
-  stosd
-
-  ;load right selectors
-  mov ax, 10h
-  mov ds, ax
-  mov es, ax
-  mov ax, 18h
-  mov ss, ax
-
-  jmp 08h:lol
-  lol:
-  jmp dword 0x00100000
-
-GDT: ;the global descriptor table
-;entry 0: a pointer to himself (in format of real mode)
-dw 8 * 3 - 1 ;size
-dd GDT ;offset
-dw 0 ;fill
-gdt_entry 0x00100000, 0xffff, 0x9A, 0x4;0b10011010, 0b0100 ;kernel code
-gdt_entry 0x00110000, 0xffff, 0x92, 0x4;0b10010010, 0b0100 ;kernel data
-gdt_entry 0x001fffff, 0xffff, 0x96, 0x4;0b10010110, 0b0100 ;kernel stack
-gdt_entry 0x0, 0xfffff, 0x92, 4+8; just to relocate
-
-  ordinare:
+  ;store results cause yes
   mov byte [TracksPerHead], ch
   mov ch, cl
-  and ch, 128+64
+  and ch, 0xc0
   shr ch, 6
   mov byte [TracksPerHead+1], ch
   and cl, 63
@@ -117,11 +28,87 @@ gdt_entry 0x0, 0xfffff, 0x92, 4+8; just to relocate
   inc dh
   ror dx, 8
   mov [Sides], dx
-  ret
+
+  mov ax, 2 ;logical 2: kernel
+  call l2hts
+  mov ax, (0x0200 or SECTORSFORKERNEL)
+  mov bx, 1000h
+  mov es, bx
+  xor bx, bx
+  int 13h ;load sectors from disk
+  mov si, str_error_AH2
+  jc errore
+
+  ;enable A20 line:
+  mov ax, 2401h ;a20 gate activate
+  mov si, str_error_A20
+  int 15h
+  jb errore
+  test ah, ah
+  jne errore
+
+  ; test if A20 was successfully enabled
+  a = $-6
+  mov ax, 0xffff
+  mov gs, ax
+  mov ax, [a]
+  cmp ax, word [gs:a+1]
+  mov si, str_error_A20
+  je errore
+
+  jmp 1000h:0000h
+
+  ;load a gdt and enter protected mode:
+;  cli
+;  lgdt [GDT]
+;  mov eax, cr0
+;  or al, 1 ;set PE bit
+;  mov cr0, eax
+
+;  use32
+
+  ;load right selectors
+;  mov ax, 10h
+;  mov ds, ax
+;  mov es, ax
+;  mov fs, ax
+;  mov gs, ax
+
+;  jmp 08h:00
+
+;GDT: ;the global descriptor table
+;;entry 0: a pointer to himself (real mode format)
+;dw 8 * 3 - 1 ;size
+;dd GDT ;offset
+;dw 0 ;fill
+;gdt_entry 0x0010000, 0x02ff, 0x9A, 0xC;0b10011010, 0b0100 ;kernel code
+;gdt_entry 0x0011000, 0x01ff, 0x92, 0xC;0b10010010, 0b0100 ;kernel data
+
+;use16
 
 errore:
+  push es
+  mov ax, 0xB800
+  mov es, ax
+  xor di, di
+  lodsb
+  mov ah, 0ch
+  jmp .check
+  .loop:
+   stosw
+   lodsb
+    .check:
+   test al, al
+   jnz .loop
+  xor ax, ax
+  int 16h
   xor ax, ax
   int 19h ;reboot
+
+  str_error_AH8 db 'Error ah=8', 0
+  str_error_AH2 db 'Error ah=2', 0
+  str_error_A20 db 'Error A20', 0
+  str_frazzo db 'PROGRAMMERS NEVER DIE!', 0
 
   bootdev db 0
   TracksPerHead dw 0

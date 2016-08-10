@@ -16,6 +16,7 @@ macro SectorAlign {
     times t db 0
   end if
   displayf ($-$$)/512
+  display 13, 10
 }
 
 macro gdt_entry base, limit, access_byte, flags {
@@ -26,3 +27,13 @@ macro gdt_entry base, limit, access_byte, flags {
   db ( ((limit shr 16) and 0xf) or (flags shl 4) )
   db ((base shr 24) and 0xff)
 }
+
+macro ccall func, [args] {
+  forward
+    mov [esp+%*4], args
+  common call func
+}
+
+SECTORSFORBOOT equ 1
+SECTORSFORFRFS equ 1
+SECTORSFORKERNEL equ 1

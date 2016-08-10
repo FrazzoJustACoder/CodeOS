@@ -1,116 +1,37 @@
 include 'frazzo.inc'
+use32
 
-KernelStart:
-  mov ebp, esp
-  sub esp, 24
-  mov [bg_color], byte 1
-  call cls
-  call loadbuffer
-  mov [esp], word ball
-  mov [esp+4], dword 0
-  mov [esp+8], dword 0
-  mov [esp+12], dword 14
-  mov [esp+16], dword 14
+  mov ax, 0
+  mov ds, ax
+  mov si, word stringa
+  call word print16
+  jmp $
 
-  .loop:
-  call cls
-  call bitblt
-  call loadbuffer
-  inc word [esp+4]
-  cmp word [esp+4], 320-14
-  jb .loop
-  mov word [esp+4], 0
-  add word [esp+8], 14
-  cmp word [esp+8], 200-14
-  jb .loop
-  mov word [esp+8], 0
-  jmp .loop
+  ;load a gdt and enter protected mode:
+  cli
+  lgdt [GDT]
+  mov eax, cr0
+  or al, 1 ;set PE bit
+  mov cr0, eax
 
-bitblt:
-  push ebp
-  mov ebp, esp
-  source equ ebp+6
-  posx equ ebp+10
-  posy equ ebp+14
-  dimx equ ebp+18
-  dimy equ ebp+22
+  ;load right selectors
+  mov ax, 10h
+  mov ds, ax
+  mov es, ax
+  jmp $
 
-  mov eax, [posx]
-  cmp eax, 320
-  jae .error_out_of_screen
-  add eax, [dimx]
-  cmp eax, 320
-  jae .error_out_of_border
-  mov eax, [posy]
-  cmp eax, 200
-  jae .error_out_of_screen
-  add eax, [dimy]
-  cmp eax, 200
-  jae .error_out_of_border
+  jmp 08h:pmode
+  pmode:
 
-  xor eax, eax
-  mov si, [source]
-  mov ax, [posy]
-  mov dx, 320
-  mul dx
-  add ax, [posx]
-  mov bx, [dimy]
-  .loop:
-   lea di, [eax+VIDEO_BUFFER]
-   mov cx, [dimx]
-   rep movsb
-   add ax, 320
-   dec bx
-   jnz .loop
+  jmp $
 
-  mov esp, ebp
-  pop ebp
-  retw
-
-  .error_out_of_screen:
-   pushd str_error_oos
-   call error
-   retw
-  .error_out_of_border:
-   pushd str_error_oos
-   call error
-   retw
-
-cls:
-  mov di, VIDEO_BUFFER
-  mov al, [bg_color]
-  mov ah, al
-  push ax
-  shl eax, 16
-  pop ax
-  mov ecx, 320*200/4
-  rep stosd
-  retw
-
-loadbuffer:
+print16:
   push es
-  mov di, 0xA000
-  mov es, di
-  mov si, VIDEO_BUFFER
+  mov ax, 0xB800
+  mov es, ax
   xor di, di
-  mov ecx, 320*200 / 4
-  rep movsd
-  pop es
-  retw
-
-error:
-  mov ax, 0003h
-  int 10h
-  mov esi, [esp+2]
-  push esi
-  call strlen
-  pop esi
-  push es
-  mov di, 0xB800
-  mov es, di
-  xor di, di
-  mov ah, 0ch
   lodsb
+  mov ah, 72h
   jmp .check
   .loop:
    stosw
@@ -118,36 +39,17 @@ error:
     .check:
    test al, al
    jnz .loop
-;  retw
-  jmp $
-
-strlen:
-  mov di, [esp+2]
-  xor al, al
-  mov ecx, -1
-  repnz scasb
-  xor ecx, -1
-  dec ecx
+  pop es
   retw
 
-bg_color db 1
-str_error_oos db 'Errore: si è tentato di disegnare fuori dallo ', \
-		 'schermo!', 0
-ball db 1, 1, 1, 1, 1, 3, 3, 3, 3, 1, 1, 1, 1, 1, \
-	1, 1, 1, 3, 3, 2, 2, 2, 2, 3, 3, 1, 1, 1, \
-	1, 1, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, 1, \
-	1, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, \
-	1, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, \
-	3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, \
-	3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, \
-	3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, \
-	3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, \
-	1, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, \
-	1, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, \
-	1, 1, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, 1, \
-	1, 1, 1, 3, 3, 2, 2, 2, 2, 3, 3, 1, 1, 1, \
-	1, 1, 1, 1, 1, 3, 3, 3, 3, 1, 1, 1, 1, 1
+stringa db 'Hello from the Kernel!', 0
+
+GDT:
+dw 8 * 3 - 1
+dd GDT
+dw 0
+gdt_entry 0x00010000, 0x1ff, 0x9A, 4
+gdt_entry 0x00011000, 0x1ff, 0x92, 4
 
 SectorAlign
 
-VIDEO_BUFFER:; db 320*200 dup 0

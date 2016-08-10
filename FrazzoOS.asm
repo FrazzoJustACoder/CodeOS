@@ -30,7 +30,7 @@ macro entry name, address, size, flags { ;max size of name: 15,
 
 file 'boot.bin'
 
-;frfs frazzo filesystem (always at logical 1)
+;frfs custom frazzo filesystem (always at logical 1)
 a = $
 db 'FRFS' ;signature for frfs
 dw 32 ;size (in bytes) of this header
@@ -44,18 +44,18 @@ times 16 - ($ - a) db 0
 
 now = SECTORSFORKERNEL + SECTORSFORBOOT + SECTORSFORFRFS
 
-entry 'edit.ef', 0, 1, F_EXECUTABLE
-entry 'logo.cmp', 0, 1, F_READONLY
+;kernel and bootleader are not linked in the filesystem
+
+entry 'edit.bin', 0, 1, F_EXECUTABLE;I'll try to execute programsin future
 
 SectorAlign
 
 file 'kernel.bin'
 file 'programs\edit.bin'
-file 'files\logo.bin'
 
-CAZ equ 1474560 ;size in bytes of a 1.44MB floppy disk
+FLOPPY equ 1474560 ;size in bytes of a 1.44MB floppy disk
 
-times CAZ - ($-$$) db 0
+times FLOPPY - ($-$$) db 0
 
 ;to build on windows:
 ;copy /Y /B FrazzoOS.bin FrazzoOS.img
