@@ -1,3 +1,15 @@
+SECTORSFORBOOT equ 1
+SECTORSFORFRFS equ 1
+SECTORSFORKERNEL equ 3
+OFWHICHCODE equ 2
+
+sel_kcode equ 0x08
+sel_kdata equ 0x10
+sel_kstack equ 0x18
+sel_videoRAM equ 0x20
+sel_1stMB equ 0x28
+sel_reloc equ 0x30
+
 macro displayf arg {
   a = arg
   p = 1000000000
@@ -33,7 +45,3 @@ macro ccall func, [args] {
     mov [esp+%*4], args
   common call func
 }
-
-SECTORSFORBOOT equ 1
-SECTORSFORFRFS equ 1
-SECTORSFORKERNEL equ 1

@@ -1,55 +1,113 @@
+macro fb alabel, [data] { ;frazzo byte (custom define byte)
+  common alabel = $ - data_segment
+  forward db data
+}
+macro fw alabel, [data] {
+  common alabel = $ - data_segment
+  forward dw data
+}
+macro fd alabel, [data] {
+  common alabel = $ - data_segment
+  forward dd data
+}
+
 include 'frazzo.inc'
 use32
+  sub esp, 64
+  rdt equ ebp ;RAM detection table
 
-  mov ax, 0
-  mov ds, ax
-  mov si, word stringa
-  call word print16
+  mov ax, sel_1stMB
+  mov fs, ax
+
+  mov [esp], dword hello
+  mov [esp+4], byte 72h
+  call print
+  call crlf
+
+  mov [esp], dword prompt
+  mov [esp+4], byte 0x0b
+  call print
+
+  mov ebx, [rdt]
+  mov eax, [fs:ebx+4]
+
+  mov [esp], eax
+  mov [esp+4], dword buffer
+  call int2hex
+
+  mov [esp], dword buffer
+  mov [esp+4], byte 0ah
+  call print
+  call crlf
+
+  mov ebx, [rdt]
+  mov eax, [fs:ebx+4]
+  mov [ebp-8], eax
+  mov eax, [fs:ebx]
+  mov [ebp-4], eax
+
+  .reading:
+
+  mov [ebp-12], byte 2
+
+  .64entry:
+
+  mov esi, [ebp-4]
+  add esi, 4
+  lods dword [fs:esi]
+  mov [ebp-4], esi
+  mov [esp], eax
+  mov [esp+4], dword buffer
+  call int2hex
+  mov [esp], dword buffer
+  mov [esp+4], byte 0x0f
+  call print
+
+  mov esi, [ebp-4]
+  sub esi, 8
+  lods dword [fs:esi]
+  add esi, 4
+  mov [ebp-4], esi
+  mov [esp], eax
+  mov [esp+4], dword buffer
+  call int2hex
+  mov [esp], dword buffer
+  mov [esp+4], byte 0x0f
+  call print
+
+  add [g_cursor], word 2
+
+  dec byte [ebp-12]
+  cmp byte [ebp-12], 0
+  ja .64entry
+
+  mov esi, [ebp-4]
+  lods dword [fs:esi]
+  mov [ebp-4], esi
+  mov [esp], eax
+  mov [esp+4], dword buffer
+  call int2hex
+  mov [esp], dword buffer
+  mov [esp+4], byte 0x0f
+  call print
+
+  call crlf
+
+  dec dword [ebp-8]
+  cmp dword [ebp-8], 0
+  ja .reading
+
   jmp $
 
-  ;load a gdt and enter protected mode:
-  cli
-  lgdt [GDT]
-  mov eax, cr0
-  or al, 1 ;set PE bit
-  mov cr0, eax
+include 'frazzolib32.asm'
 
-  ;load right selectors
-  mov ax, 10h
-  mov ds, ax
-  mov es, ax
-  jmp $
+SectorAlign
 
-  jmp 08h:pmode
-  pmode:
-
-  jmp $
-
-print16:
-  push es
-  mov ax, 0xB800
-  mov es, ax
-  xor di, di
-  lodsb
-  mov ah, 72h
-  jmp .check
-  .loop:
-   stosw
-   lodsb
-    .check:
-   test al, al
-   jnz .loop
-  pop es
-  retw
-
-stringa db 'Hello from the Kernel!', 0
-
-GDT:
-dw 8 * 3 - 1
-dd GDT
-dw 0
-gdt_entry 0x00010000, 0x1ff, 0x9A, 4
-gdt_entry 0x00011000, 0x1ff, 0x92, 4
+data_segment = $
+fd g_cursor, 0
+fb hello, 'Hello from the Kernel!', 0
+fb prompt, 'RAM blocks detected by the bootloader: ', 0
+fb buffer, 10 dup 0
 
 SectorAlign
 

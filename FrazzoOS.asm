@@ -15,7 +15,7 @@ macro entry name, address, size, flags { ;max size of name: 15,
   db name
   b = $ - a
   if b > 15
-    display name, 13, 10, 'Nome troppo lungo', 0
+    display name, 13, 10, 'Name too long!', 0
     abort ;unexisting istruction to stop the assembly process
   end if
   times b db 0
@@ -46,12 +46,12 @@ now = SECTORSFORKERNEL + SECTORSFORBOOT + SECTORSFORFRFS
 
 ;kernel and bootleader are not linked in the filesystem
 
-entry 'edit.bin', 0, 1, F_EXECUTABLE;I'll try to execute programsin future
+;entry 'edit.bin', 0, 1, F_EXECUTABLE;I'll try to execute programsin future
 
 SectorAlign
 
 file 'kernel.bin'
-file 'programs\edit.bin'
+;file 'programs\edit.bin'
 
 FLOPPY equ 1474560 ;size in bytes of a 1.44MB floppy disk
 
