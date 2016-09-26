@@ -1,7 +1,0 @@
-How to build on Windows:
- - Compile all files, FrazzoOS.asm has to be the very last
- - Open cmd, cd into the project folder
- - type "copy /Y /B FrazzoOS.bin FrazzoOS.img
-You'll get a bootable 1.44MB floppy disk image in .img format, with a custom filesystem
-
- 
