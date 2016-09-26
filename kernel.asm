@@ -1,113 +1,30 @@
-macro fb alabel, [data] { ;frazzo byte (custom define byte)
-  common alabel = $ - data_segment
-  forward db data
-}
-macro fw alabel, [data] {
-  common alabel = $ - data_segment
-  forward dw data
-}
-macro fd alabel, [data] {
-  common alabel = $ - data_segment
-  forward dd data
-}
-
-include 'frazzo.inc'
 use32
-  sub esp, 64
-  rdt equ ebp ;RAM detection table
+alone equ
+include 'frazzo.inc'
 
-  mov ax, sel_1stMB
-  mov fs, ax
+;  jmp 0xDEADC0DE
+  sub esp, 24
 
-  mov [esp], dword hello
-  mov [esp+4], byte 72h
-  call print
-  call crlf
-
-  mov [esp], dword prompt
-  mov [esp+4], byte 0x0b
+  mov [g_color], byte 0x0b
+  mov [esp], dword str_hello
   call print
 
-  mov ebx, [rdt]
-  mov eax, [fs:ebx+4]
-
-  mov [esp], eax
-  mov [esp+4], dword buffer
-  call int2hex
-
-  mov [esp], dword buffer
-  mov [esp+4], byte 0ah
-  call print
-  call crlf
-
-  mov ebx, [rdt]
-  mov eax, [fs:ebx+4]
-  mov [ebp-8], eax
-  mov eax, [fs:ebx]
-  mov [ebp-4], eax
-
-  .reading:
-
-  mov [ebp-12], byte 2
-
-  .64entry:
-
-  mov esi, [ebp-4]
-  add esi, 4
-  lods dword [fs:esi]
-  mov [ebp-4], esi
-  mov [esp], eax
-  mov [esp+4], dword buffer
-  call int2hex
-  mov [esp], dword buffer
-  mov [esp+4], byte 0x0f
-  call print
-
-  mov esi, [ebp-4]
-  sub esi, 8
-  lods dword [fs:esi]
-  add esi, 4
-  mov [ebp-4], esi
-  mov [esp], eax
-  mov [esp+4], dword buffer
-  call int2hex
-  mov [esp], dword buffer
-  mov [esp+4], byte 0x0f
-  call print
-
-  add [g_cursor], word 2
-
-  dec byte [ebp-12]
-  cmp byte [ebp-12], 0
-  ja .64entry
-
-  mov esi, [ebp-4]
-  lods dword [fs:esi]
-  mov [ebp-4], esi
-  mov [esp], eax
-  mov [esp+4], dword buffer
-  call int2hex
-  mov [esp], dword buffer
-  mov [esp+4], byte 0x0f
-  call print
-
-  call crlf
-
-  dec dword [ebp-8]
-  cmp dword [ebp-8], 0
-  ja .reading
-
+  mov [g_color], byte 0x0a
+  mov [esp], dword 123456789
+  call printd
   jmp $
 
-include 'frazzolib32.asm'
+kernel equ
+include 'frazzolib.asm'
+include 'drivers\textmode.asm'
 
-SectorAlign
+pad512
+data_segment = $-$$
+dd 0xDEADC0DE
+fb str_hello, 'Hello from the Kernel!', 0
+align 4
+fb g_buffer, 32 dup 0
+fd g_cursor, 160
+fd g_color, 0ah
 
-data_segment = $
-fd g_cursor, 0
-fb hello, 'Hello from the Kernel!', 0
-fb prompt, 'RAM blocks detected by the bootloader: ', 0
-fb buffer, 10 dup 0
-
-SectorAlign
-
+pad512
