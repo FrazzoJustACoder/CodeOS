@@ -104,6 +104,11 @@ error_bad_ram:
   mov bl, 0x0c
   mov si, str_bad_ram
   call print
+  jmp stop
+error_bad_vesa:
+  mov bl, 0x0c
+  mov si, str_bad_vesa
+  call print
 ;  jmp stop
 stop:
   hlt
@@ -130,7 +135,8 @@ print: ;00:si, bl
   str_bad_drive db 'Error: invalid booting drive', 0
   str_bad_boot db "Error: can't load 2nd-stage bootlaoder", 0
   str_bad_kernel db "Error: can't load kernel", 0
-  str_bad_ram db "Error:, can't detect ram", 0
+  str_bad_ram db "Error: can't detect ram", 0
+  str_bad_vesa db 'Error: VESA mode not supported.', 0
   str_ok db 'Successfully 1st-stage Booted', 0
 
   bootdev db ?

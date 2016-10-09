@@ -5,9 +5,10 @@ SECT_FRFS equ 1
 SECT_BOOT_II equ 1
 
 SECT_PREKERNEL equ (SECT_BOOT + SECT_FRFS + SECT_BOOT_II)
-SECT_KCODE equ 2
+SECT_KCODE equ 3
 SECT_KDATA equ 1
-SECT_KERNEL equ (SECT_KCODE + SECT_KDATA)
+SECT_SYS equ 1
+SECT_KERNEL equ (SECT_KCODE + SECT_KDATA + SECT_SYS)
 
 KERNEL_LOAD_ADDRESS equ 0x20000
 
@@ -33,8 +34,37 @@ macro displayf num {
    display '0'
   end if
 }
+macro displayx num {
+  if num > 0
+    local param, pot, cond, a, b, c
+    param = num
+    pot = 256*256*256*16
+    cond = 0
+    repeat 8
+      a = param mod pot
+      b = param - a
+      c = b / pot
+      if (cond > 0) | ( c > 0)
+       cond = 1
+       if c < 10
+	 display (c+'0')
+       else
+	 display (c+'A'-10)
+       end if
+     end if
+     param = a
+     pot = pot / 16
+    end repeat
+  else
+    display '0'
+  end if
+}
 macro displayfnl num {
   displayf num
+  display 13, 10
+}
+macro displayxnl num {
+  displayx num
   display 13, 10
 }
 macro pad512 {
@@ -71,7 +101,10 @@ macro ccall func, [args] {
   common call func
 }
 
-macro gdt_entry base, size, access_byte, flags {
+macro gdt_entry name, base, size, access_byte, flags {
+  ;remember to declare gdt_index and give it 8 as start value
+  name = gdt_index
+  gdt_index = gdt_index+8
   dw (size and 0xffff)
   dw (base and 0xffff)
   db ((base shr 16) and 0xff)
@@ -79,12 +112,14 @@ macro gdt_entry base, size, access_byte, flags {
   db ( ((size shr 16) and 0xf) or (flags shl 4) )
   db ((base shr 24) and 0xff)
 }
-SEL_KCODE equ 0x08
-SEL_KDATA equ 0x10
-SEL_KSTACK equ 0x18
-SEL_VIDEORAM equ 0x20
-SEL_1stMB equ 0x28
-SEL_RELOC equ 0x30
+
+macro idt_entry selector, offset, attr {
+  dw (offset and 0xffff)
+  dw selector
+  db 0
+  db attr
+  dw ((offset shr 16) and 0xffff)
+}
 
 macro fb alabel, [data] {
   common alabel = $ - data_segment
@@ -97,4 +132,7 @@ macro fw alabel, [data] {
 macro fd alabel, [data] {
   common alabel = $ - data_segment
   forward dd data
+}
+macro nop7 {
+   db 0x8D, 0xB4, 0x26, 0, 0, 0, 0 ;lea esi, [esi+0]
 }

@@ -26,9 +26,9 @@ org 0x7E00
   mov cr0, eax
 
   ;relocate the kernel
-  mov ax, SEL_1stMB
+  mov ax, 0x18
   mov ds, ax
-  mov ax, SEL_RELOC
+  mov ax, 0x20
   mov es, ax
   mov esi, 0x00020000
   xor edi, edi
@@ -39,21 +39,20 @@ org 0x7E00
   mov ecx, SECT_KDATA * 128
   rep movs dword [edi], [esi]
 
-  ;load right selectors
-  mov ax, SEL_KDATA
-  mov ds, ax
-  mov es, ax
-  mov fs, ax
-  mov gs, ax
-  mov ax, SEL_KSTACK
-  mov ss, ax
-  mov esp, 0x1ffc
+  mov edi, 0x00004000
+  mov ecx, SECT_SYS * 128
+  rep movs dword [edi], [esi]
 
-  pushd 0x00010000
-  mov ebp, esp
+  ;load selector for next gdt
+  mov ax, 0x10
+  mov ds, ax
+
+;  pushd 0x00010000
+  mov eax, 0x00010000 ;long pointer to some data
+;  mov ebp, esp
 
   ;jump to kernel
-  jmp SEL_KCODE:0x0000
+  jmp 0x08:0x0000
 
 error_bad_A20:
   mov si, str_bad_A20
@@ -90,13 +89,12 @@ gdtr:
   dw gdt_end - (GDT + 1)
   dd GDT
 GDT:
-gdt_entry 0, 0, 0, 0
-gdt_entry 0x00100000, 0xffff, 0x9A, 0x4 ;kernel code
-gdt_entry 0x00102000, 0x1fff, 0x92, 0x4 ;kernel data
-gdt_entry 0x00104000, 0x1fff, 0x92, 0x4 ;kernel stack
-gdt_entry 0x000B8000, 0x7fff, 0x92, 0x4 ;video RAM
-gdt_entry 0x00000000, 0xfffff, 0x92, 0x4;1st MB
-gdt_entry 0x00100000, 0xffff, 0x92, 0x4 ;reloc
+gdt_index = 0
+gdt_entry a, 0, 0, 0, 0
+gdt_entry a, 0x00100000, 0x1fff, 0x9A, 0x4 ;kernel code
+gdt_entry a, 0x00102000, 0x3fff, 0x92, 0x4 ;kernel data and structures
+gdt_entry a, 0x00000000, 0xfffff, 0x92, 0x4;1st MB
+gdt_entry a, 0x00100000, 0xffff, 0x92, 0x4 ;reloc
 gdt_end:
 
 displayfnl ($-$$)
