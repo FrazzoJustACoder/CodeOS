@@ -1,6 +1,20 @@
 kernel ;trap
 
 isr0:
+  pushad
+  pushd [g_color]
+  mov byte [g_color], 0x0C
+  call crlf
+  call .print
+  db 'Division by 0 exception caught at address ', 0
+  .print:
+  call print
+  mov eax, [esp+40]
+  mov [esp], eax
+  call printx
+  .stop:
+    hlt
+    jmp .stop
 isr1:
 isr2:
 isr3:
