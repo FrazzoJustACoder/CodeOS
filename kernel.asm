@@ -3,6 +3,8 @@ org 0x00100000
 alone equ
 include 'frazzo.inc'
 
+;LOW KERNEL
+
 ;  jmp 0xDEADC0DE
   sub esp, 24
 
@@ -23,6 +25,7 @@ include 'frazzo.inc'
   mov ss, ax
   mov esp, 0x001FFFFC
   mov ebp, esp
+  sub esp, 32
 
   ;set up an IDT
   lidt [idtr]
@@ -31,24 +34,50 @@ include 'frazzo.inc'
 
   call KB_setup ;setup keyboard
 
+  call disk_init ;setup hard disk
+
+  call graphics_init ;init VESA variables
+
   ;enable interrupts
   sti
 
-  mov byte [g_color], byte 0x0b
-  mov [esp], dword str_hello
-  call print
-  call crlf
+;PLAY AROUND HERE:
 
-  ;check of APIC
-;  mov eax, 1
-;  cpuid
-;  test edx, (1 shl 9)
-;  jz 0xBADC0DE;error_bad_apic
+  mov eax, 0x00FFFF00
+  call gp_background
 
-  mov [esp], dword 0xDEADC0DE
-  call printx
+  ;set up PIT timer to have a frequency of 60Hz
+  mov bx, 19886
+  call PIT_begintimer
 
-  jmp $
+  lel:
+    mov [esp], dword 0
+    mov [esp+4], dword 0
+    mov [esp+8], dword 30
+    mov [esp+12], dword 20
+;    mov [esp+16], dword bmp
+;    mov [esp+16], dword 0
+    .loop:
+      mov [esp+16], dword 0x00FFFF00
+      call rect
+      inc dword [esp]
+      mov [esp+16], dword 0x0000FFFF
+      call rect
+      hlt
+;      hlt ;;;;
+;      .hlt:
+      cmp byte [PIT_handler], 1
+      je $
+;      mov byte [PIT_handler], 0
+      cmp dword [esp], 0x300*0x400
+      jb .loop
+    mov [esp], dword 16
+    call rect
+
+  _hlt:
+    hlt
+    jmp _hlt
+
 
 kernel equ
 include 'frazzolib.asm'
@@ -56,26 +85,28 @@ include 'drivers\textmode.asm'
 include 'drivers\exceptions.asm'
 include 'drivers\pic.asm'
 include 'drivers\keyboard.asm'
+include 'drivers\disk.asm'
+include 'drivers\graphics.asm'
+include 'drivers\pit.asm'
 
 pad512
 org 0x00102000
-;data_segment = $-$$
-;dd 0xDEADC0DE
 str_hello db 'Hello from the Kernel!', 0
-;fb str_hello, 'Hello from the Kernel!', 0
 align 4
-;fb g_buffer, 32 dup 0
 g_buffer db 32 dup 0
-;fd g_cursor, 160
 g_cursor dd 80
-;fd g_color, 0ah
 g_color dd 0ah
+
+delete1 db 'Error'
+delete2 db 0, 0
+
 align 16
-;fb space, 0
 space:
+db 'FRAZZO', 0, 0
 
 pad512
 org 0x00104000
+;GLOBAL DESCRIPTOR TABLE
 gdtr: ;first empty entry used to point the table itself
   dw gdt_end - gdtr - 1
   dd gdtr
@@ -85,6 +116,7 @@ gdt_entry sel_kcode, 0, 0xFFFFF, 0x9A, 0xC ;kcode
 gdt_entry sel_kdata, 0, 0xFFFFF, 0x92, 0xC ;kdata
 gdt_end:
 
+;INTERRUPT DESCRIPTOR TABLE
 idtr:
   dw idt_end - IDT - 1
   dd IDT
@@ -122,7 +154,7 @@ idt_entry sel_kcode, isr_res, 0x8F ;reserved
 idt_entry sel_kcode, isr_res, 0x8F ;reserved
 idt_entry sel_kcode, isr30e, 0x8F ;security exception
 idt_entry sel_kcode, isr_res, 0x8F ;reserved
-idt_entry sel_kcode, irq0, 0x8E ;PIT
+idt_entry sel_kcode, irq_PIT, 0x8E ;PIT
 idt_entry sel_kcode, irq_keyboard, 0x8E ;keyboard
 idt_entry sel_kcode, cascade, 0x8E ;cascade
 idt_entry sel_kcode, irq3, 0x8E ;com2
@@ -140,17 +172,53 @@ idt_entry sel_kcode, irq14, 0x8E ;primary ATA hard disk
 idt_entry sel_kcode, irq15, 0x8E ;secondary ATA hard disk / spurious
 idt_end:
 
-kb_scancode_to_character:
-db   0,   0, '1', '2', '3', '4', '5', '6'
+align 4
+
+;DISK DRIVER DATA
+disk_plstsel db ?
+disk_slstsel db ?
+
+struc DD { ;disk data (size: 24 bytes)
+  .size dd ? ;ff00ssss ff B,KB,MB,GB; ssss size
+  .format dw ?
+  .heads dw ?
+  .cylinders dw ?
+  .sectors dw ?
+  .lba28 dd ? ;supported if non-zero
+  .lba48 dq ? ;supported if non-zero
+}
+
+hdd_data DD
+
+align 16
+
+gp_lfb dd ? ;linear framebuffer
+gp_width dw ?
+gp_height dw ?
+gp_pitch dw ? ;bytes in a line (not always height * bpp)
+gp_bpp db ?
+db ?
+gp_totalsize dd ? ;size in bytes of linear framebuffer
+gp_pixels dd ? ;size in pixels of linear framebuffer
+
+PIT_handler dd 0
+
+align 16
+;KEYBOARD DRIVER DATA
+kb_sc2character:
+db   0,   2, '1', '2', '3', '4', '5', '6'
 db '7', '8', '9', '0', "'", 'ì',   8,	9 ;backspace, tab
 db 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i'
-db 'o', 'p', 'è', '+',	10,   0, 'a', 's'
+db 'o', 'p', 'è', '+',	10,   3, 'a', 's' ;enter
 db 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ò'
 db 'à',   0,   1, 'ù', 'z', 'x', 'c', 'v'
 db 'b', 'n', 'm', ',', '.', '-',   1, '*'
 
 kb_size dd 0
 kb_index dd 0
+kb_mode dd KB_MODE_ONLYCHAR
+kb_bufsize dd 256
+kb_status dd 0
 kb_buffer:
 
 pad512
