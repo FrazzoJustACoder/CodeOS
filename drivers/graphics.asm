@@ -33,8 +33,11 @@ gp_background: ;eax color data
 
 gp_select: ;esp+8 pointing to RECT structure (x,y,w,h) -> regs filled (right edi,
 	   ;ebx width, edx height, ebp pitch-w)
-  mov eax, [esp+12]
-  mul dword [gp_pitch]
+  mov ax, [esp+12]
+  mul word [gp_pitch]
+  shl eax, 16
+  mov ax, dx
+  ror eax, 16
   mov edi, [esp+8]
   shl edi, 2
   add edi, eax
@@ -67,5 +70,6 @@ bitblt: ;x, y, w, h, px
    add edi, ebp
    dec edx
    jnz .transfer
-  pop ebp
   ret
+
+text: ;x, y, lpStr
